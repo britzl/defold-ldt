@@ -492,11 +492,14 @@ def create_api():
 				if file.endswith(".json"):
 					print("  Parsing " + file)
 					class_name = file.replace("_doc.json", "")
+					jsondata = json.load(fh)
 					global_doc = global_doc + "---\n"
+					global_doc = global_doc + "-- " + jsondata["info"]["description"].replace("\n", "\n-- ") + "\n"
 					global_doc = global_doc + "-- @field[parent = #global] " + class_name + "#" + class_name + " " + class_name + "\n\n"
 					class_doc = "---\n"
-					class_doc = "-- @module " + class_name + "\n\n\n\n"
-					for element in json.load(fh)["elements"]:
+					class_doc = class_doc + "-- " + jsondata["info"]["description"].replace("\n", "\n-- ") + "\n"
+					class_doc = class_doc + "-- @module " + class_name + "\n\n\n\n"
+					for element in jsondata["elements"]:
 						element_name = element["name"]
 						if element_name != "":
 							entry_type = "Function"
@@ -511,37 +514,40 @@ def create_api():
 								class_doc = class_doc + "-- @field [parent=#" + class_name + "] " + element_name + "\n"
 							else:
 								class_doc = class_doc + "---\n"
-								class_doc = class_doc + "-- @function [parent=#" + class_name + "] " + element_name + "\n"
+								class_doc = class_doc + "-- @function [parent=#" + class_name + "] " + element_name.replace(class_name + ".", "") + "\n"
 					
 							class_doc = class_doc + "-- " + element["brief"] + "\n"
 							if element["description"] != "":
 								class_doc = class_doc + "-- " + element["description"].replace("\n", "\n-- ") + "\n"
 							if len(element["parameters"]) > 0:
 								for parameter in element["parameters"]:
-									class_doc = class_doc + "-- @param " + parameter["name"] + " "  + parameter["doc"] + "\n"
+									class_doc = class_doc + "-- @param " + parameter["name"].replace("[", "").replace("]", "") + " "  + parameter["doc"].replace("\n", "\n-- ") + "\n"
 							if len(element["returnvalues"]) > 0:
 								for returnvalue in element["returnvalues"]:
-									class_doc = class_doc + "-- @return" + returnvalue["name"] + " " + returnvalue["doc"] + "\n"
+									class_doc = class_doc + "-- @return" + returnvalue["name"] + " " + returnvalue["doc"].replace("\n", "\n-- ") + "\n"
 							if element["examples"] != "":
 								class_doc = class_doc + "-- @usage" + element["examples"].replace("\n", "\n-- ") + "\n"
 
 							class_doc = class_doc + "\n\n"
 					
 					with open(os.path.join(DEFOLD_API_PATH, class_name + ".doclua"), "w") as out:
-						out.write(class_doc)
+						out.write(class_doc + "\nreturn nil\n")
 
 		
-		global_doc = global_doc + GLOBAL_MODULES
-		with open(os.path.join(DEFOLD_API_PATH, "global.doclua"), "w") as out:
-			out.write(global_doc)
+	global_doc = global_doc + GLOBAL_MODULES
+	with open(os.path.join(DEFOLD_API_PATH, "global.doclua"), "w") as out:
+		out.write(global_doc)
 
 def create_rockspec():
 	with open(ROCKSPEC_FILE, "w") as out:
 		out.write(string.Template(ROCKSPEC).substitute({ "DEFOLD_VERSION": get_defold_version(), "API_ZIP": API_ZIP }))
 
 def create_archive():
+	print("Creating archive")
 	if os.path.exists(API_ZIP):
 		os.remove(API_ZIP)
+	if os.path.exists("defold-ldt.zip"):
+		os.remove("defold-ldt.zip")
 
 	zipf = zipfile.ZipFile(API_ZIP, 'w', zipfile.ZIP_DEFLATED)
 	for root, dirs, files in os.walk(DEFOLD_API_PATH):
